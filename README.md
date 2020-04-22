@@ -5,7 +5,7 @@ Pytorch Library for Area Under the Margin (AUM) Ranking, as proposed in the pape
 
 ## Install
 
-`pip install -U AUM`
+`pip install -U aum`
 
 ## Usage
 
