@@ -9,16 +9,16 @@ dataset=$2
 seed=$3
 NETTYPE="resnet50"
 
-# General arguments for indicator sample trains
+# General arguments for threshold sample trains
 args="--data ${datadir}/${dataset} --dataset ${dataset} --net_type ${NETTYPE}"
-args="${args} --seed ${seed} --num_valid 0 --use_indicator_samples"
+args="${args} --seed ${seed} --num_valid 0 --use_threshold_samples"
 train_args="--num_epochs 60 --lr 0.1 --wd 1e-4 --batch_size 256"
 train_args="${train_args} --num_workers 0"
 
-# First indicator sample run
+# First threshold sample run
 savedir1="results/${dataset}_${NETTYPE}"
-savedir1="${savedir1}_indicator1_seed${seed}"
-cmd="python runner.py ${args} --save ${savedir1} --indicator_samples_set_idx 1 - train_for_aum_computation ${train_args} - done"
+savedir1="${savedir1}_threshold1_seed${seed}"
+cmd="python runner.py ${args} --save ${savedir1} --threshold_samples_set_idx 1 - train_for_aum_computation ${train_args} - done"
 echo $cmd
 if [ -z "${TESTRUN}" ]; then
   mkdir -p $savedir1
@@ -26,10 +26,10 @@ if [ -z "${TESTRUN}" ]; then
   eval $cmd
 fi
 
-# Second indicator sample run
+# Second threshold sample run
 savedir2="results/${dataset}_${NETTYPE}"
-savedir2="${savedir2}_indicator2_seed${seed}"
-cmd="python runner.py ${args} --save ${savedir2} --indicator_samples_set_idx 2 - train_for_aum_computation ${train_args} - done"
+savedir2="${savedir2}_threshold2_seed${seed}"
+cmd="python runner.py ${args} --save ${savedir2} --threshold_samples_set_idx 2 - train_for_aum_computation ${train_args} - done"
 echo $cmd
 if [ -z "${TESTRUN}" ]; then
   mkdir -p $savedir2
@@ -37,16 +37,16 @@ if [ -z "${TESTRUN}" ]; then
   eval $cmd
 fi
 
-# Compute AUMs for first indicator sample run
-cmd="python runner.py ${args} --save ${savedir1} --indicator_samples_set_idx 1 - generate_aum_details - done"
+# Compute AUMs for first threshold sample run
+cmd="python runner.py ${args} --save ${savedir1} --threshold_samples_set_idx 1 - generate_aum_details - done"
 echo $cmd
 if [ -z "${TESTRUN}" ]; then
   mkdir -p ${savedir1}
 eval $cmd
 fi
 
-# Compute AUMs for the second indicator sample run
-cmd="python runner.py ${args} --save ${savedir2} --indicator_samples_set_idx 2 - generate_aum_details - done"
+# Compute AUMs for the second threshold sample run
+cmd="python runner.py ${args} --save ${savedir2} --threshold_samples_set_idx 2 - generate_aum_details - done"
 echo $cmd
 if [ -z "${TESTRUN}" ]; then
   mkdir -p ${savedir2}
