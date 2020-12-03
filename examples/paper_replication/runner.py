@@ -23,32 +23,32 @@ from torchvision import transforms
 
 class _Dataset(torch.utils.data.Dataset):
     """
-    A wrapper around existing torch datasets to add purposefully mislabeled samplesa and indicator samples.
+    A wrapper around existing torch datasets to add purposefully mislabeled samplesa and threshold samples.
 
     :param :obj:`torch.utils.data.Dataset` base_dataset: Dataset to wrap
     :param :obj:`torch.LongTensor` indices: List of indices of base_dataset to include (used to create valid. sets)
     :param dict flip_dict: (optional) List mapping sample indices to their (incorrect) assigned label
-    :param bool use_indicator_samples: (default False) Whether or not to add indicator samples to this datasets
-    :param bool indicator_samples_set_idx: (default 1) Which set of indicator samples to use.
+    :param bool use_threshold_samples: (default False) Whether or not to add threshold samples to this datasets
+    :param bool threshold_samples_set_idx: (default 1) Which set of threshold samples to use.
     """
     def __init__(self,
                  base_dataset,
                  indices=None,
                  flip_dict=None,
-                 use_indicator_samples=False,
-                 indicator_samples_set_idx=1):
+                 use_threshold_samples=False,
+                 threshold_samples_set_idx=1):
         super().__init__()
         self.dataset = base_dataset
         self.flip_dict = flip_dict or {}
         self.indices = torch.arange(len(self.dataset)) if indices is None else indices
 
-        # Create optional extra class (for indicator samples)
-        self.use_indicator_samples = use_indicator_samples
-        if use_indicator_samples:
-            num_indicator_samples = len(self.indices) // (self.targets.max().item() + 1)
-            start_index = (indicator_samples_set_idx - 1) * num_indicator_samples
-            end_index = (indicator_samples_set_idx) * num_indicator_samples
-            self.indicator_sample_indices = torch.randperm(len(self.indices))[start_index:end_index]
+        # Create optional extra class (for threshold samples)
+        self.use_threshold_samples = use_threshold_samples
+        if use_threshold_samples:
+            num_threshold_samples = len(self.indices) // (self.targets.max().item() + 1)
+            start_index = (threshold_samples_set_idx - 1) * num_threshold_samples
+            end_index = (threshold_samples_set_idx) * num_threshold_samples
+            self.threshold_sample_indices = torch.randperm(len(self.indices))[start_index:end_index]
 
     @property
     def targets(self):
@@ -80,10 +80,10 @@ class _Dataset(torch.utils.data.Dataset):
                     if idx in self.flip_dict.keys():
                         self._assigned_target_memo[i] = self.flip_dict[idx]
 
-            # Change labels of indicator samples
-            if self.use_indicator_samples:
+            # Change labels of threshold samples
+            if self.use_threshold_samples:
                 extra_class = (self.targets.max().item() + 1)
-                self._assigned_target_memo[self.indicator_sample_indices] = extra_class
+                self._assigned_target_memo[self.threshold_sample_indices] = extra_class
         return self._assigned_target_memo
 
     def __len__(self):
@@ -113,8 +113,8 @@ class Runner(object):
         Default is 0. - i.e. regular training without flipping any labels.
     :param str noise_type: (uniform, flip) Mislabeling noise model to use.
 
-    :param bool use_indicator_samples: (default False) Whether to add indictaor samples
-    :param bool indicator_samples_set_idx: (default 1) Which set of indicator samples to use (based on index)
+    :param bool use_threshold_samples: (default False) Whether to add indictaor samples
+    :param bool threshold_samples_set_idx: (default 1) Which set of threshold samples to use (based on index)
 
     :param str loss_type: (default cross-entropy) Loss type
     :param bool oracle_training: (default False) If true, the network will be trained only on clean data
@@ -132,8 +132,8 @@ class Runner(object):
                  split_seed=None,
                  noise_type="uniform",
                  perc_mislabeled=0.,
-                 use_indicator_samples=False,
-                 indicator_samples_set_idx=1,
+                 use_threshold_samples=False,
+                 threshold_samples_set_idx=1,
                  loss_type="cross-entropy",
                  oracle_training=False,
                  net_type="resnet",
@@ -150,8 +150,8 @@ class Runner(object):
         self.dataset = dataset
         self.net_type = net_type
         self.num_valid = num_valid
-        self.use_indicator_samples = use_indicator_samples
-        self.indicator_samples_set_idx = indicator_samples_set_idx
+        self.use_threshold_samples = use_threshold_samples
+        self.threshold_samples_set_idx = threshold_samples_set_idx
         self.split_seed = split_seed if split_seed is not None else seed
         self.seed = seed
         self.loss_func = losses[loss_type]
@@ -178,13 +178,13 @@ class Runner(object):
 
         # Make model
         self.num_classes = self.test_set.targets.max().item() + 1
-        if use_indicator_samples:
+        if use_threshold_samples:
             self.num_classes += 1
         self.num_data = len(self.train_set)
         logging.info(f"\nDataset: {self.dataset}")
         logging.info(f"Num train: {self.num_data}")
         logging.info(f"Num valid: {self.num_valid}")
-        logging.info(f"Extra class: {self.use_indicator_samples}")
+        logging.info(f"Extra class: {self.use_threshold_samples}")
         logging.info(f"Num classes: {self.num_classes}")
         if self.perc_mislabeled:
             logging.info(f"Noise type: {self.noise_type}")
@@ -351,8 +351,8 @@ class Runner(object):
                 ),
                 flip_dict=flip_dict,
                 indices=train_indices,
-                use_indicator_samples=self.use_indicator_samples,
-                indicator_samples_set_idx=self.indicator_samples_set_idx,
+                use_threshold_samples=self.use_threshold_samples,
+                threshold_samples_set_idx=self.threshold_samples_set_idx,
             )
             if os.path.exists(os.path.join(self.data, "test")):
                 self._valid_set_memo = _Dataset(
@@ -371,8 +371,8 @@ class Runner(object):
                 dataset_cls(root=self.data, train=True, transform=train_transforms),
                 flip_dict=flip_dict,
                 indices=train_indices,
-                use_indicator_samples=self.use_indicator_samples,
-                indicator_samples_set_idx=self.indicator_samples_set_idx,
+                use_threshold_samples=self.use_threshold_samples,
+                threshold_samples_set_idx=self.threshold_samples_set_idx,
             )
             self._valid_set_memo = _Dataset(dataset_cls(
                 root=self.data, train=True, transform=test_transforms),
@@ -420,7 +420,7 @@ class Runner(object):
 
         true_targets = train_data["true_targets"]
         assigned_targets = train_data["assigned_targets"]
-        is_indicator_sample = assigned_targets.gt(true_targets.max())
+        is_threshold_sample = assigned_targets.gt(true_targets.max())
         label_flipped = torch.ne(true_targets, assigned_targets)
 
         # Where to store result
@@ -433,7 +433,7 @@ class Runner(object):
         result["True Target"] = true_targets
         result["Observed Target"] = assigned_targets
         result["Label Flipped"] = label_flipped
-        result["Is Indicator Sample"] = is_indicator_sample
+        result["Is Threshold Sample"] = is_threshold_sample
 
         # Add AUM
         aum_data = aum_data.set_index('sample_id')
@@ -442,11 +442,11 @@ class Runner(object):
         result["AUM"] = torch.tensor(aum_list)
 
         # Add AUM "worse than random" (AUM_WTR) score
-        # i.e. - is the AUM worse than 99% of indicator samples?
-        if is_indicator_sample.sum().item():
+        # i.e. - is the AUM worse than 99% of threshold samples?
+        if is_threshold_sample.sum().item():
             aum_wtr = torch.lt(
                 result["AUM"].view(-1, 1),
-                result["AUM"][is_indicator_sample].view(1, -1),
+                result["AUM"][is_threshold_sample].view(1, -1),
             ).float().mean(dim=-1).gt(0.01).float()
             result["AUM_WTR"] = aum_wtr
         else:
@@ -454,7 +454,7 @@ class Runner(object):
 
         df = pd.DataFrame(result)
         df.set_index(
-            ["Index", "True Target", "Observed Target", "Label Flipped", "Is Indicator Sample"],
+            ["Index", "True Target", "Observed Target", "Label Flipped", "Is Threshold Sample"],
             inplace=True)
         df.to_csv(os.path.join(load, "aum_details.csv"))
         return self
@@ -515,9 +515,9 @@ class Runner(object):
                     self.compute_aums(load=sub_aum_file)
                 aums_data = pd.read_csv(aums_path).drop(
                     ["True Target", "Observed Target", "Label Flipped"], axis=1)
-                counts += torch.tensor(~aums_data["Is Indicator Sample"].values).float()
+                counts += torch.tensor(~aums_data["Is Threshold Sample"].values).float()
                 aums += torch.tensor(aums_data["AUM"].values *
-                                     ~aums_data["Is Indicator Sample"].values).float()
+                                     ~aums_data["Is Threshold Sample"].values).float()
             counts.clamp_min_(1)
             aums = aums.div_(counts)
             order = aums.argsort(descending=True)
@@ -793,7 +793,7 @@ class Runner(object):
         result_class = util.result_class(stats)
 
         # Weighting - set up from GMM
-        # NOTE: This is only used when removing indicator samples
+        # NOTE: This is only used when removing threshold samples
         # TODO: some of this probably needs to be changed?
         if aum_wtr:
             counts = torch.zeros(len(self.train_set))
@@ -806,9 +806,9 @@ class Runner(object):
                     self.generate_aum_details(load=sub_aum_wtr)
                 aums_data = pd.read_csv(aums_path).drop(
                     ["True Target", "Observed Target", "Label Flipped"], axis=1)
-                counts += torch.tensor(~aums_data["Is Indicator Sample"].values).float()
+                counts += torch.tensor(~aums_data["Is Threshold Sample"].values).float()
                 bad_probs += torch.tensor(aums_data["AUM_WTR"].values *
-                                          ~aums_data["Is Indicator Sample"].values).float()
+                                          ~aums_data["Is Threshold Sample"].values).float()
             counts.clamp_min_(1)
             good_probs = (1 - bad_probs / counts).to(next(model.parameters()).dtype).ceil()
             if torch.cuda.is_available():
