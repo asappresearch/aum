@@ -233,8 +233,6 @@ class Runner(object):
             tmp_set = dataset_cls(root=os.path.join(self.data, "train"))
         else:
             tmp_set = dataset_cls(root=self.data, train=True, download=True)
-            if self.dataset.upper() == 'CIFAR10':
-                tmp_set.targets = tmp_set.train_labels
         num_train = len(tmp_set) - self.num_valid
         num_valid = self.num_valid
         num_classes = int(max(tmp_set.targets)) + 1
