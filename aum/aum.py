@@ -83,10 +83,10 @@ class AUMCalculator():
 
             record = AUMRecord(sample_id=sample_id,
                                num_measurements=self.counts[sample_id],
-                               target_logit=targets[i].item(),
-                               target_val=target_values[i].item(),
-                               other_logit=other_logit_index[i].item(),
-                               other_val=other_logit_values[i].item(),
+                               target_logit=target_values[i].item(),
+                               target_val=targets[i].item(),
+                               other_logit=other_logit_values[i].item(),
+                               other_val=other_logit_index[i].item(),
                                margin=margin,
                                aum=self.sums[sample_id] / self.counts[sample_id])
 
